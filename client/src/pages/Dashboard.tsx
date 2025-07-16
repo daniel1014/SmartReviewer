@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Newspaper, TrendingUp, Activity, Settings } from 'lucide-react';
+import type { Article } from '../../../shared/types';
 import SearchBar from '../components/SearchBar';
 import SearchFilters from '../components/SearchFilters';
 import BatchAnalysisControls from '../components/BatchAnalysisControls';
@@ -15,7 +16,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [resultLimit, setResultLimit] = useState(9);
   const [analyzingArticles, setAnalyzingArticles] = useState<Set<string>>(new Set());
-  const [articlesWithAnalysis, setArticlesWithAnalysis] = useState<any[]>([]);
+  const [articlesWithAnalysis, setArticlesWithAnalysis] = useState<Article[]>([]);
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
   const [batchAnalysisMode, setBatchAnalysisMode] = useState(false);
   const [batchStatus, setBatchStatus] = useState<{
@@ -141,15 +142,15 @@ export default function Dashboard() {
   // Merge news articles with analysis data
   const articles = useMemo(() => {
     const newsArticles = newsData?.articles || [];
-    return newsArticles.map(article => {
-      const analyzed = articlesWithAnalysis.find(a => a.url === article.url);
+    return newsArticles.map((article: Article) => {
+      const analyzed = articlesWithAnalysis.find((a: Article) => a.url === article.url);
       return analyzed || article;
     });
   }, [newsData?.articles, articlesWithAnalysis]);
 
   // Define handleSelectAll after articles is available
   const handleSelectAll = useCallback(() => {
-    const articleUrls = articles.map(article => article.url);
+    const articleUrls = articles.map((article: Article) => article.url);
     setSelectedArticles(new Set(articleUrls));
   }, [articles]);
 
@@ -158,7 +159,7 @@ export default function Dashboard() {
     if (selectedArticles.size === 0) return;
     
     // Get selected article objects
-    const selectedArticleObjects = articles.filter(article => 
+    const selectedArticleObjects = articles.filter((article: Article) => 
       selectedArticles.has(article.url)
     );
     
@@ -167,7 +168,7 @@ export default function Dashboard() {
       return;
     }
     
-    console.log('🔍 Starting batch analysis for articles:', selectedArticleObjects.map(a => a.title));
+    console.log('🔍 Starting batch analysis for articles:', selectedArticleObjects.map((a: Article) => a.title));
     
     setBatchStatus({
       total: selectedArticleObjects.length,
