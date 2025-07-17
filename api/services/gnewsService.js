@@ -28,12 +28,14 @@ class GNewsService {
   async searchNews(query, page = 1, limit = 9) {
     this.checkAndResetCounter();
     
-    const cacheKey = `news_${crypto.createHash('md5').update(`${query}_${page}_${limit}`).digest('hex')}`;
-    const cached = cache.get(cacheKey);
+    // First check if we have cached all results for this query
+    const masterCacheKey = `news_master_${crypto.createHash('md5').update(query).digest('hex')}`;
+    const specificCacheKey = `news_${crypto.createHash('md5').update(`${query}_${page}_${limit}`).digest('hex')}`;
     
-    if (cached) {
-      console.log(`Cache hit for query: ${query}`);
-      return cached;
+    const cachedSpecific = cache.get(specificCacheKey);
+    if (cachedSpecific) {
+      console.log(`Cache hit for query: ${query}, page: ${page}, limit: ${limit}`);
+      return cachedSpecific;
     }
 
     if (this.requestCount >= this.dailyLimit) {
@@ -41,30 +43,70 @@ class GNewsService {
     }
 
     try {
-      const url = `${this.baseURL}/search?q=${encodeURIComponent(query)}&lang=en&max=${limit}&page=${page}&apikey=${this.apiKey}`;
+      // Check if we have the master results cached
+      let masterResults = cache.get(masterCacheKey);
       
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`GNews API error: ${response.status} ${response.statusText}`);
+      if (!masterResults) {
+        // GNews API: Fetch maximum results (100) for this query
+        const url = `${this.baseURL}/search?q=${encodeURIComponent(query)}&lang=en&max=100&apikey=${this.apiKey}`;
+        
+        console.log(`GNews API URL: ${url}`);
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`GNews API error: ${response.status} ${response.statusText}`);
+        }
+        
+        this.requestCount++;
+        const data = await response.json();
+        
+        
+        // Transform and cache all results
+        masterResults = {
+          ...data,
+          articles: data.articles.map(article => ({
+            ...article,
+            urlHash: crypto.createHash('md5').update(article.url).digest('hex'),
+            content: article.content || article.description || '',
+            publishedAt: new Date(article.publishedAt)
+          }))
+        };
+        
+        // Cache the master results for 5 minutes
+        cache.set(masterCacheKey, masterResults, 300);
+        console.log(`GNews API called successfully. Total results: ${data.totalArticles}, Requests used: ${this.requestCount}/${this.dailyLimit}`);
+      } else {
+        console.log(`Using cached master results for query: ${query}`);
       }
       
-      this.requestCount++;
-      const data = await response.json();
+      // Now paginate from the cached results
+      const startIndex = (page - 1) * limit;
       
-      // Transform data to match our Article interface
+      // Create infinite scroll by cycling through available articles
+      const cycledArticles = [];
+      const totalNeeded = limit;
+      const availableArticles = masterResults.articles;
+      
+      for (let i = 0; i < totalNeeded; i++) {
+        const articleIndex = (startIndex + i) % availableArticles.length;
+        cycledArticles.push(availableArticles[articleIndex]);
+      }
+      
+      // Limit total articles to 40 to show "end" state
+      const totalDisplayed = (page - 1) * limit + cycledArticles.length;
+      const maxArticles = 40;
+      
       const transformedData = {
-        ...data,
-        articles: data.articles.map(article => ({
-          ...article,
-          urlHash: crypto.createHash('md5').update(article.url).digest('hex'),
-          content: article.content || article.description || '',
-          publishedAt: new Date(article.publishedAt)
-        }))
+        totalArticles: masterResults.totalArticles,
+        articles: cycledArticles,
+        currentPage: page,
+        hasMore: totalDisplayed < maxArticles, // Stop at 40 articles
+        totalResults: masterResults.totalArticles || 0
       };
       
-      cache.set(cacheKey, transformedData);
-      console.log(`GNews API called successfully. Requests used: ${this.requestCount}/${this.dailyLimit}`);
+      // Cache this specific page result
+      cache.set(specificCacheKey, transformedData, 300);
       
       return transformedData;
     } catch (error) {

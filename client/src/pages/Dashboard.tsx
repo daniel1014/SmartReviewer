@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Newspaper, TrendingUp, Activity, Settings } from 'lucide-react';
+import { Newspaper, TrendingUp, Activity, Settings, History, Database } from 'lucide-react';
 import type { Article } from '../../../shared/types';
 import SearchBar from '../components/SearchBar';
 import SearchFilters from '../components/SearchFilters';
@@ -8,9 +8,11 @@ import ArticleCard from '../components/ArticleCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import ThemeToggle from '../components/ThemeToggle';
+import DatabaseStatus from '../components/DatabaseStatus';
+import LoadMoreButton from '../components/LoadMoreButton';
 import { useToast } from '../components/Toast';
-import { useNewsSearch } from '../hooks/useNewsSearch';
-import { useAnalyzeArticle, useAnalyzeBatch } from '../hooks/useAnalysis';
+import { useInfiniteNewsSearch } from '../hooks/useNewsSearch';
+import { useAnalyzeArticle, useAnalyzeBatch, useAnalysisHistory } from '../hooks/useAnalysis';
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,6 +21,7 @@ export default function Dashboard() {
   const [articlesWithAnalysis, setArticlesWithAnalysis] = useState<Article[]>([]);
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
   const [batchAnalysisMode, setBatchAnalysisMode] = useState(false);
+  const [showAnalysisHistory, setShowAnalysisHistory] = useState(false);
   const [batchStatus, setBatchStatus] = useState<{
     total: number;
     successful: number;
@@ -27,12 +30,24 @@ export default function Dashboard() {
   } | null>(null);
   const { showToast } = useToast();
 
+  // Use infinite scroll for news search
   const { 
-    data: newsData, 
+    data: infiniteNewsData, 
     isLoading: isLoadingNews, 
     error: newsError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     refetch: refetchNews
-  } = useNewsSearch(searchQuery, 1, resultLimit);
+  } = useInfiniteNewsSearch(searchQuery, resultLimit);
+
+  // Analysis history hook
+  const { 
+    data: analysisHistoryData, 
+    isLoading: isLoadingHistory, 
+    error: historyError,
+    refetch: refetchHistory
+  } = useAnalysisHistory();
 
   const analyzeArticleMutation = useAnalyzeArticle();
   const analyzeBatchMutation = useAnalyzeBatch();
@@ -139,14 +154,21 @@ export default function Dashboard() {
     setArticlesWithAnalysis([]);
   }, [searchQuery]);
 
-  // Merge news articles with analysis data
+  // Merge news articles with analysis data (for infinite scroll)
   const articles = useMemo(() => {
-    const newsArticles = newsData?.articles || [];
-    return newsArticles.map((article: Article) => {
+    const allNewsArticles = infiniteNewsData?.pages.flatMap(page => page.articles) || [];
+    return allNewsArticles.map((article: Article) => {
       const analyzed = articlesWithAnalysis.find((a: Article) => a.url === article.url);
       return analyzed || article;
     });
-  }, [newsData?.articles, articlesWithAnalysis]);
+  }, [infiniteNewsData?.pages, articlesWithAnalysis]);
+
+  // Handle load more for infinite scroll
+  const handleLoadMore = useCallback(async () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      await fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Define handleSelectAll after articles is available
   const handleSelectAll = useCallback(() => {
@@ -257,6 +279,18 @@ export default function Dashboard() {
                 </div>
               </div>
               
+              {/* Database Status */}
+              <DatabaseStatus />
+              
+              {/* Analysis History Toggle */}
+              <button
+                onClick={() => setShowAnalysisHistory(!showAnalysisHistory)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+              >
+                <History className="h-4 w-4" />
+                <span className="hidden sm:inline">History</span>
+              </button>
+              
               <ThemeToggle />
             </div>
           </div>
@@ -345,6 +379,88 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Analysis History Section */}
+        {showAnalysisHistory && (
+          <div className="mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Analysis History
+                  </h3>
+                  <button
+                    onClick={() => refetchHistory()}
+                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-4 max-h-96 overflow-y-auto">
+                {isLoadingHistory ? (
+                  <div className="text-center py-8">
+                    <LoadingSpinner size="sm" text="Loading history..." />
+                  </div>
+                ) : historyError ? (
+                  <div className="text-center py-8">
+                    <p className="text-red-600 dark:text-red-400">
+                      Failed to load analysis history
+                    </p>
+                  </div>
+                ) : analysisHistoryData?.data?.articles?.length > 0 ? (
+                  <div className="space-y-4">
+                    {analysisHistoryData.data.articles.map((article: any) => (
+                      <div
+                        key={article._id}
+                        className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
+                              {article.title}
+                            </h4>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                              {article.analysis?.summary?.substring(0, 100)}...
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                              <span>
+                                {article.analysis?.sentiment?.label || 'Unknown'}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                {new Date(article.analysis?.analyzedAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-3">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              article.analysis?.sentiment?.label === 'positive'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : article.analysis?.sentiment?.label === 'negative'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                            }`}>
+                              {article.analysis?.sentiment?.label || 'neutral'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 dark:text-gray-400">
+                      No analysis history found
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {hasResults && (
           <div>
             <div className="flex items-center justify-between mb-6">
@@ -371,9 +487,9 @@ export default function Dashboard() {
             )}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {articles.map((article: any) => (
+              {articles.map((article: any, index: number) => (
                 <ArticleCard
-                  key={article.url}
+                  key={`${article.url}-${index}`}
                   article={article}
                   onAnalyze={handleAnalyze}
                   isAnalyzing={analyzingArticles.has(article.url)}
@@ -383,6 +499,13 @@ export default function Dashboard() {
                 />
               ))}
             </div>
+
+            {/* Load More Button for Infinite Scroll */}
+            <LoadMoreButton
+              onLoadMore={handleLoadMore}
+              hasMore={hasNextPage || false}
+              loading={isFetchingNextPage}
+            />
           </div>
         )}
       </main>

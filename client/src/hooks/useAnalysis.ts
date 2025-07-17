@@ -62,5 +62,26 @@ export function useAnalysisStatus() {
     queryFn: () => analysisAPI.getStatus(),
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 25000,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
+}
+
+// Enhanced hook specifically for database connection monitoring
+export function useDatabaseStatus() {
+  const { data, isLoading, error, refetch } = useAnalysisStatus();
+  
+  return {
+    databaseStatus: data?.services?.database || {
+      status: 'unknown',
+      readyState: -1,
+      responseTime: null,
+      error: null
+    },
+    systemStatus: data?.status || 'unknown',
+    isLoading,
+    error,
+    refetch,
+    lastUpdated: data?.timestamp
+  };
 }

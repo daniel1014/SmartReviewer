@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import Article from '../models/Article.js';
 import geminiService from '../services/geminiService.js';
 import sentimentService from '../services/sentimentService.js';
@@ -151,22 +152,53 @@ router.get('/history', async (req, res) => {
 });
 
 // Get analysis service status
-router.get('/status', (req, res) => {
+router.get('/status', async (req, res) => {
   try {
     const geminiStatus = geminiService.getStatus();
     const sentimentStatus = sentimentService.getStats();
     
+    // Monitor MongoDB connection
+    const startTime = Date.now();
+    let databaseStatus = {
+      status: 'disconnected',
+      readyState: mongoose.connection.readyState,
+      responseTime: null,
+      error: null
+    };
+    
+    try {
+      // Test database connection with ping
+      await mongoose.connection.db.admin().ping();
+      databaseStatus = {
+        status: mongoose.connection.readyState === 1 ? 'connected' : 'connecting',
+        readyState: mongoose.connection.readyState,
+        responseTime: Date.now() - startTime,
+        host: mongoose.connection.host,
+        database: mongoose.connection.name,
+        error: null
+      };
+    } catch (dbError) {
+      databaseStatus.error = dbError.message;
+      databaseStatus.status = 'disconnected';
+    }
+    
+    // Overall system status
+    const systemStatus = databaseStatus.status === 'connected' ? 'operational' : 'degraded';
+    
     res.json({
       services: {
         gemini: geminiStatus,
-        sentiment: sentimentStatus
+        sentiment: sentimentStatus,
+        database: databaseStatus
       },
-      status: 'operational'
+      status: systemStatus,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     res.status(500).json({
       status: 'error',
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });

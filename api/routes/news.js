@@ -29,9 +29,9 @@ router.get('/search', async (req, res) => {
       });
     }
 
-    if (limitNum < 1 || limitNum > 10) {
+    if (limitNum < 1 || limitNum > 100) {
       return res.status(400).json({
-        error: 'Limit must be between 1 and 10'
+        error: 'Limit must be between 1 and 100'
       });
     }
 
