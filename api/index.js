@@ -10,6 +10,9 @@ dotenv.config();
 
 const app = express();
 
+// Trust the first proxy (Vercel) to bypass express-rate-limit middleware
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
