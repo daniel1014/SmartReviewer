@@ -1,19 +1,20 @@
 # Smart Reviewer - AI-Powered News Analysis Platform
 
-A modern web application that enables users to search real-time news articles, analyze them using AI-powered summarization and sentiment analysis, and store results for future reference.
+**Live Demo:** [https://smart-reviewer-aries-global.vercel.app/](https://smart-reviewer-aries-global.vercel.app/)
 
-## 🚀 Features
+## Overview
+A modern web application that enables users to search for real-time news articles, analyze them using AI-powered summarization and sentiment analysis, and store results for future reference. Built with a MERN stack and deployed on Vercel, it demonstrates scalable, modular, and production-ready architecture.
 
-- **Real-time News Search**: Search current news articles using the GNews API
-- **AI-Powered Summarization**: Get intelligent summaries using Google Gemini 2.0 Flash
-- **ML Sentiment Analysis**: Advanced sentiment analysis with confidence scoring
-- **Batch Processing**: Analyze up to 5 articles simultaneously
-- **Dark/Light Theme**: Toggle between light and dark themes
-- **Session-based History**: Track your analysis history
-- **Responsive Design**: Works seamlessly on desktop and mobile
+## Key Features
+- **Real-time News Search:** Search for news articles using the GNews API with advanced filtering (country, language).
+- **AI-Powered Summarization:** Each article is summarized using Google Gemini 2.0 Flash via LangChain with structured output.
+- **ML-Based Sentiment Analysis:** Sentiment is determined using a hybrid of ML (Sentiment.js) and LLM hints.
+- **Batch Analysis:** Analyze up to **10 articles at once** with real-time progress and error handling.
+- **Session-Based History:** Each user's analysis history is stored and filterable by sentiment.
+- **Dark/Light Theme:** Fully responsive and theme-aware UI.
+- **Robust Error Handling:** Rate limiting, health checks, and user-friendly error messages.
 
 ## 🏗️ Architecture
-
 ### Frontend (React + TypeScript)
 - **Framework**: React 18 with TypeScript
 - **Styling**: Tailwind CSS with dark mode support
@@ -24,8 +25,8 @@ A modern web application that enables users to search real-time news articles, a
 ### Backend (Node.js + Express)
 - **Runtime**: Node.js with Express.js
 - **Database**: MongoDB with Mongoose
-- **AI Services**: Google Gemini 2.0 Flash API
-- **ML Processing**: Local sentiment analysis with Natural.js
+- **AI Services**: Google Gemini 2.0 Flash API with LangChain
+- **ML Processing**: Local sentiment analysis with Natural.js & Sentiment.js
 - **External APIs**: GNews.io for news data
 - **Caching**: Node-cache for API response caching
 
@@ -52,72 +53,38 @@ smart-reviewer/
 │   ├── routes/             # API route handlers
 │   ├── services/           # External service integrations
 │   └── package.json        # Backend dependencies
-├── shared/                 # Shared types and constants
-├── vercel.json             # Deployment configuration
-└── package.json            # Root package management
-```
 
-## 🛠️ Setup Instructions
+## Setup & Running Locally
+1. **Clone the repo:**
+   ```bash
+   git clone <repo-url>
+   cd SmartReviewer
+   ```
+2. **Install dependencies:**
+   ```bash
+   npm install
+   cd client && npm install
+   cd ../api && npm install
+   ```
+3. **Environment variables:**
+   - Set up `.env` files in both `client/` and `api/` (see `tasks/spec.md` for required keys).
+4. **Run locally:**
+   ```bash
+   npm run dev
+   ```
+   - Frontend: [http://localhost:5173](http://localhost:5173)
+   - API: [http://localhost:3000/api](http://localhost:3000/api)
 
-### Prerequisites
-- Node.js 18 or higher
-- MongoDB Atlas account
-- GNews API key
-- Google Gemini API key
+## Main Files & Structure
+- `client/src/pages/Dashboard.tsx` — Main UI, search, batch analysis, and history
+- `client/src/components/BatchAnalysisControls.tsx` — Batch selection and progress
+- `client/src/components/ArticleCard.tsx` — Article display and analysis trigger
+- `api/routes/analysis.js` — Analysis endpoints, batch workflow, history
+- `api/services/geminiService.js` — AI summarization (LangChain + Gemini)
+- `api/services/sentimentService.js` — Sentiment analysis logic
+- `api/models/Article.js` — MongoDB schema for articles and analysis
 
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd smart-reviewer
-```
-
-2. **Install dependencies**
-```bash
-npm run install:all
-```
-
-3. **Environment Configuration**
-
-Create `.env` files in both `api/` and `client/` directories:
-
-**api/.env**
-```
-MONGODB_URI=mongodb+srv://your-username:your-password@cluster.mongodb.net/smart-reviewer
-GNEWS_API_KEY=your_gnews_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
-NODE_ENV=development
-PORT=3000
-```
-
-**client/.env.local**
-```
-VITE_API_URL=http://localhost:3000
-VITE_SESSION_KEY=smart_reviewer_session
-```
-
-### Development
-
-Run both frontend and backend simultaneously:
-```bash
-npm run dev
-```
-
-Or run them separately:
-```bash
-# Backend
-npm run dev:api
-
-# Frontend
-npm run dev:client
-```
-
-### Building for Production
-
-```bash
-npm run build
-```
+---
 
 ## 🔧 API Endpoints
 
@@ -127,7 +94,7 @@ npm run build
 
 ### Analysis
 - `POST /api/analysis/article` - Analyze single article
-- `POST /api/analysis/batch` - Analyze multiple articles (max 5)
+- `POST /api/analysis/batch` - Analyze multiple articles (max 10)
 - `GET /api/analysis/history` - Get analysis history
 - `GET /api/analysis/status` - Get analysis service status
 
@@ -145,14 +112,15 @@ npm run build
 ## 🧠 AI & ML Features
 
 ### Sentiment Analysis
-- **Library**: Natural.js with custom enhancements
-- **Features**: Negation detection, intensifier recognition, Gemini integration
+- **Approach**: Analyzes sentiment using a rule-based ML library, enhances it with text features, and blends in an LLM (Gemini) hint for a balanced, robust result.
+- **Library**: Natural.js, Sentiment.js, Gemini
+- **Features**: Negation detection, intensifier recognition, Gemini integration. 
 - **Output**: Label (positive/neutral/negative), score (-5 to +5), confidence (0-1)
 
 ### Article Summarization
+- **Approach**: Extracts the full news article content directly from the provided URL before summarization, ensuring summaries are based on the complete article text rather than just metadata or snippets.
 - **Model**: Google Gemini 2.0 Flash
 - **Features**: Flexible length, content-aware summarization
-- **Optimization**: Temperature 0.3, max 500 tokens
 
 ### Caching Strategy
 - **News API**: 5-minute cache for search results
@@ -181,7 +149,7 @@ npm run build
 
 1. **Configure vercel.json** (already included)
 2. **Set Environment Variables** in Vercel dashboard
-3. **Deploy**:
+3. **Deploy**: 
 ```bash
 vercel deploy
 ```
@@ -195,34 +163,18 @@ Set these in your Vercel dashboard:
 
 ## 📈 Monitoring
 
-- **Error Tracking**: Comprehensive error logging
+- **Error Tracking**: Comprehensive error logging (Vercel backlog)
 - **Performance Metrics**: Processing time tracking
 - **API Usage**: Rate limiting and quota monitoring
 - **Cache Statistics**: Hit/miss ratio tracking
 
 ## 🔧 Technical Constraints
 
-- **GNews API**: 100 requests/day limit
+- **GNews API**: 100 requests/day, 10 news per request limit
 - **Gemini API**: 15 requests/minute limit
 - **Vercel Serverless**: 10-second execution timeout
 - **MongoDB Atlas**: 512MB storage (free tier)
 
-## 📝 License
-
-This project is licensed under the MIT License.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📞 Support
-
-For support, please open an issue in the repository or contact the development team.
-
 ---
 
-**Built with ❤️ using React, TypeScript, Node.js, and MongoDB**
+**Built with ❤️ using React, TypeScript, Node.js (Express), and MongoDB**
