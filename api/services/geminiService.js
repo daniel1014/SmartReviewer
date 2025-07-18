@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { z } from 'zod';
+import { extract } from '@extractus/article-extractor';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -56,9 +57,35 @@ class GeminiService {
       throw new Error('Gemini API rate limit exceeded (15 requests/minute)');
     }
 
+    // Extract full article content using @extractus/article-extractor
+    let enrichedArticle = { ...article };
+    
+    try {
+      if (article.url) {
+        console.log(`🔍 Extracting full content from URL: ${article.url}`);
+        const extractedData = await extract(article.url);
+        
+        if (extractedData && extractedData.content) {
+          enrichedArticle.content = extractedData.content;
+          console.log(`✅ Extracted ${extractedData.content.length} characters from article`);
+          
+          // Also update title and description if they're better
+          if (extractedData.title && extractedData.title.length > article.title?.length) {
+            enrichedArticle.title = extractedData.title;
+          }
+          if (extractedData.description && extractedData.description.length > (article.description?.length || 0)) {
+            enrichedArticle.description = extractedData.description;
+          }
+        }
+      }
+    } catch (extractError) {
+      console.warn('Article extraction failed:', extractError.message);
+      // Continue with original article data
+    }
+
     try {
       // Try LangChain structured approach first
-      const structuredResult = await this.analyzeWithLangChain(article);
+      const structuredResult = await this.analyzeWithLangChain(enrichedArticle);
       this.requestCount++;
       console.log(`Gemini API called successfully with LangChain structured output. Requests used: ${this.requestCount}/${this.minuteLimit}`);
       return structuredResult;
@@ -74,8 +101,8 @@ class GeminiService {
         1. A comprehensive summary (aim for 100-200 words but be flexible based on content importance)
         2. Initial sentiment assessment
         
-        Article Title: ${article.title}
-        Article Content: ${article.content || article.description || ''}
+        Article Title: ${enrichedArticle.title}
+        Article Content: ${enrichedArticle.content || enrichedArticle.description || ''}
       `;
 
       // Enhanced prompt for better JSON compliance
@@ -102,14 +129,14 @@ class GeminiService {
       console.log(`Gemini API called successfully with fallback. Requests used: ${this.requestCount}/${this.minuteLimit}`);
       
       // Enhanced JSON parsing with multiple strategies
-      return this.parseGeminiResponse(responseText, article);
+      return this.parseGeminiResponse(responseText, enrichedArticle);
       
     } catch (error) {
       console.error('Gemini API error:', error);
       
       // Provide fallback response
       return {
-        summary: this.generateFallbackSummary(article),
+        summary: this.generateFallbackSummary(enrichedArticle),
         sentimentHint: 'neutral'
       };
     }
@@ -119,7 +146,7 @@ class GeminiService {
     try {
       const prompt = `
         Analyze this news article and provide:
-        1. A comprehensive summary (aim for 100-200 words but be flexible based on content importance)
+        1. A comprehensive yet concise summary following the article language (aim for 100-200 words but be flexible based on content importance)
         2. Initial sentiment assessment
         
         Article Title: ${article.title}

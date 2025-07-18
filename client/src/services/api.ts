@@ -41,8 +41,15 @@ api.interceptors.response.use(
 );
 
 export const newsAPI = {
-  search: (query: string, page = 1, limit = 9) => 
-    api.get('/news/search', { params: { q: query, page, limit } }),
+  search: (query: string, page = 1, limit = 9, filters?: { country?: string; language?: string }) => {
+    const params: any = { q: query, page, limit };
+    
+    // Add filters if provided
+    if (filters?.country) params.country = filters.country;
+    if (filters?.language) params.language = filters.language;
+    
+    return api.get('/news/search', { params });
+  },
   
   getStatus: () => 
     api.get('/news/status'),

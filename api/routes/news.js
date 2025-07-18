@@ -6,7 +6,13 @@ const router = express.Router();
 // Search news articles
 router.get('/search', async (req, res) => {
   try {
-    const { q: query, page = 1, limit = 9 } = req.query;
+    const { 
+      q: query, 
+      page = 1, 
+      limit = 9,
+      country,
+      language
+    } = req.query;
     
     if (!query || query.trim().length === 0) {
       return res.status(400).json({
@@ -35,7 +41,28 @@ router.get('/search', async (req, res) => {
       });
     }
 
-    const result = await gnewsService.searchNews(query, pageNum, limitNum);
+    // Validate filter parameters
+    const validLanguages = ['ar', 'zh', 'nl', 'en', 'fr', 'de', 'el', 'hi', 'it', 'ja', 'ml', 'mr', 'no', 'pt', 'ro', 'ru', 'es', 'sv', 'ta', 'te', 'uk'];
+    const validCountries = ['au', 'br', 'ca', 'cn', 'eg', 'fr', 'de', 'gr', 'hk', 'in', 'ie', 'il', 'it', 'jp', 'nl', 'no', 'pk', 'pe', 'ph', 'pt', 'ro', 'ru', 'sg', 'es', 'se', 'ch', 'tw', 'ua', 'gb', 'us'];
+
+    if (language && !validLanguages.includes(language)) {
+      return res.status(400).json({
+        error: `Invalid language. Must be one of: ${validLanguages.join(', ')}`
+      });
+    }
+
+    if (country && !validCountries.includes(country)) {
+      return res.status(400).json({
+        error: `Invalid country. Must be one of: ${validCountries.join(', ')}`
+      });
+    }
+
+    // Build filters object
+    const filters = {};
+    if (country) filters.country = country;
+    if (language) filters.language = language;
+
+    const result = await gnewsService.searchNews(query, pageNum, limitNum, filters);
 
     res.json({
       success: true,

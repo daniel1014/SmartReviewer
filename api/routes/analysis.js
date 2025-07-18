@@ -18,8 +18,6 @@ router.post('/article', async (req, res) => {
     const { article } = req.body;
     const sessionId = req.headers['x-session-id'] || 'anonymous';
     
-    console.log('📄 Article data:', article);
-    
     if (!article || !article.url || !article.title) {
       console.log('❌ Invalid article data:', { 
         hasArticle: !!article,
@@ -67,7 +65,7 @@ router.post('/batch', async (req, res) => {
       });
     }
 
-    if (articles.length > 5) {
+    // Remove arbitrary limitation on number of articles for batch analysis
     if (articles.length > 10) {
       return res.status(400).json({
         error: 'Maximum 10 articles can be analyzed at once'

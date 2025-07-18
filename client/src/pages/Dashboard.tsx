@@ -17,6 +17,8 @@ import { useAnalyzeArticle, useAnalyzeBatch, useAnalysisHistory } from '../hooks
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [resultLimit, setResultLimit] = useState(9);
+  const [country, setCountry] = useState('');
+  const [language, setLanguage] = useState('');
   const [analyzingArticles, setAnalyzingArticles] = useState<Set<string>>(new Set());
   const [articlesWithAnalysis, setArticlesWithAnalysis] = useState<Article[]>([]);
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
@@ -30,6 +32,14 @@ export default function Dashboard() {
   } | null>(null);
   const { showToast } = useToast();
 
+  // Build filters object
+  const filters = useMemo(() => {
+    const filterObj: { country?: string; language?: string } = {};
+    if (country) filterObj.country = country;
+    if (language) filterObj.language = language;
+    return Object.keys(filterObj).length > 0 ? filterObj : undefined;
+  }, [country, language]);
+
   // Use infinite scroll for news search
   const { 
     data: infiniteNewsData, 
@@ -39,7 +49,7 @@ export default function Dashboard() {
     hasNextPage,
     isFetchingNextPage,
     refetch: refetchNews
-  } = useInfiniteNewsSearch(searchQuery, resultLimit);
+  } = useInfiniteNewsSearch(searchQuery, resultLimit, filters);
 
   // Analysis history hook
   const { 
@@ -58,6 +68,14 @@ export default function Dashboard() {
 
   const handleResultLimitChange = useCallback((limit: number) => {
     setResultLimit(limit);
+  }, []);
+
+  const handleCountryChange = useCallback((newCountry: string) => {
+    setCountry(newCountry);
+  }, []);
+
+  const handleLanguageChange = useCallback((newLanguage: string) => {
+    setLanguage(newLanguage);
   }, []);
 
   const handleArticleSelect = useCallback((article: any) => {
@@ -157,10 +175,12 @@ export default function Dashboard() {
   // Merge news articles with analysis data (for infinite scroll)
   const articles = useMemo(() => {
     const allNewsArticles = infiniteNewsData?.pages.flatMap(page => page.articles) || [];
-    return allNewsArticles.map((article: Article) => {
-      const analyzed = articlesWithAnalysis.find((a: Article) => a.url === article.url);
-      return analyzed || article;
-    });
+    return allNewsArticles
+      .filter((article: Article) => article && article.url && article.title) // Filter out null/invalid articles
+      .map((article: Article) => {
+        const analyzed = articlesWithAnalysis.find((a: Article) => a.url === article.url);
+        return analyzed || article;
+      });
   }, [infiniteNewsData?.pages, articlesWithAnalysis]);
 
   // Handle load more for infinite scroll
@@ -185,8 +205,8 @@ export default function Dashboard() {
       selectedArticles.has(article.url)
     );
     
-    if (selectedArticleObjects.length > 5) {
-      showToast('Maximum 5 articles can be analyzed at once', 'error');
+    if (selectedArticleObjects.length > 50) {
+      showToast('Maximum 50 articles can be analyzed at once', 'error');
       return;
     }
     
@@ -245,11 +265,11 @@ export default function Dashboard() {
     }
   }, [selectedArticles, articles, analyzeBatchMutation, showToast]);
 
-  // Reset selected articles when search changes
+  // Reset selected articles when search or filters change
   useEffect(() => {
     setSelectedArticles(new Set());
     setBatchStatus(null);
-  }, [searchQuery, resultLimit]);
+  }, [searchQuery, resultLimit, country, language]);
 
   const hasResults = searchQuery && articles.length > 0;
   const showEmptyState = searchQuery && !isLoadingNews && articles.length === 0;
@@ -320,6 +340,10 @@ export default function Dashboard() {
             <SearchFilters
               resultLimit={resultLimit}
               onResultLimitChange={handleResultLimitChange}
+              country={country}
+              onCountryChange={handleCountryChange}
+              language={language}
+              onLanguageChange={handleLanguageChange}
             />
             
             {hasResults && (
@@ -487,17 +511,25 @@ export default function Dashboard() {
             )}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {articles.map((article: any, index: number) => (
-                <ArticleCard
-                  key={`${article.url}-${index}`}
-                  article={article}
-                  onAnalyze={handleAnalyze}
-                  isAnalyzing={analyzingArticles.has(article.url)}
-                  isSelected={selectedArticles.has(article.url)}
-                  onSelect={handleArticleSelect}
-                  showSelection={batchAnalysisMode}
-                />
-              ))}
+              {articles.map((article: any, index: number) => {
+                // Additional safety check for render
+                if (!article || !article.url || !article.title) {
+                  console.warn('Skipping invalid article at index:', index, article);
+                  return null;
+                }
+                
+                return (
+                  <ArticleCard
+                    key={`${article.url}-${index}`}
+                    article={article}
+                    onAnalyze={handleAnalyze}
+                    isAnalyzing={analyzingArticles.has(article.url)}
+                    isSelected={selectedArticles.has(article.url)}
+                    onSelect={handleArticleSelect}
+                    showSelection={batchAnalysisMode}
+                  />
+                );
+              }).filter(Boolean)}
             </div>
 
             {/* Load More Button for Infinite Scroll */}

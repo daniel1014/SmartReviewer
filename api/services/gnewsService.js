@@ -25,16 +25,17 @@ class GNewsService {
     }
   }
 
-  async searchNews(query, page = 1, limit = 9) {
+  async searchNews(query, page = 1, limit = 9, filters = {}) {
     this.checkAndResetCounter();
     
-    // First check if we have cached all results for this query
-    const masterCacheKey = `news_master_${crypto.createHash('md5').update(query).digest('hex')}`;
-    const specificCacheKey = `news_${crypto.createHash('md5').update(`${query}_${page}_${limit}`).digest('hex')}`;
+    // Include filters in cache key for proper caching
+    const filterString = JSON.stringify(filters);
+    const masterCacheKey = `news_master_${crypto.createHash('md5').update(query + filterString).digest('hex')}`;
+    const specificCacheKey = `news_${crypto.createHash('md5').update(`${query}_${page}_${limit}_${filterString}`).digest('hex')}`;
     
     const cachedSpecific = cache.get(specificCacheKey);
     if (cachedSpecific) {
-      console.log(`Cache hit for query: ${query}, page: ${page}, limit: ${limit}`);
+      console.log(`Cache hit for query: ${query}, page: ${page}, limit: ${limit}, filters: ${filterString}`);
       return cachedSpecific;
     }
 
@@ -47,8 +48,29 @@ class GNewsService {
       let masterResults = cache.get(masterCacheKey);
       
       if (!masterResults) {
-        // GNews API: Fetch maximum results (100) for this query
-        const url = `${this.baseURL}/search?q=${encodeURIComponent(query)}&lang=en&max=100&apikey=${this.apiKey}`;
+        // Build URL with filters
+        const params = new URLSearchParams({
+          q: query,
+          max: '100',
+          apikey: this.apiKey
+        });
+
+        // Add filters if provided
+        if (filters.language) {
+          params.append('lang', filters.language);
+        } else {
+          params.append('lang', 'en'); // Default to English
+        }
+
+        if (filters.country) {
+          params.append('country', filters.country);
+        }
+
+        if (filters.category) {
+          params.append('category', filters.category);
+        }
+
+        const url = `${this.baseURL}/search?${params.toString()}`;
         
         console.log(`GNews API URL: ${url}`);
         

@@ -1,11 +1,11 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { newsAPI } from '../services/api';
 
-export function useNewsSearch(query: string, page = 1, limit = 9) {
+export function useNewsSearch(query: string, page = 1, limit = 9, filters?: { country?: string; language?: string }) {
   return useQuery({
-    queryKey: ['news', query, page, limit],
+    queryKey: ['news', query, page, limit, filters],
     queryFn: async () => {
-      const response = await newsAPI.search(query, page, limit);
+      const response = await newsAPI.search(query, page, limit, filters);
       // Normalize the response structure
       return {
         ...response.data,
@@ -21,12 +21,12 @@ export function useNewsSearch(query: string, page = 1, limit = 9) {
 }
 
 // infinite scroll hook for pagination
-export function useInfiniteNewsSearch(query: string, limit = 9) {
+export function useInfiniteNewsSearch(query: string, limit = 9, filters?: { country?: string; language?: string }) {
   return useInfiniteQuery({
-    queryKey: ['news-infinite', query, limit],
+    queryKey: ['news-infinite', query, limit, filters],
     initialPageParam: 1,
     queryFn: async ({ pageParam }: { pageParam: number }) => {
-      const response = await newsAPI.search(query, pageParam, limit);
+      const response = await newsAPI.search(query, pageParam, limit, filters);
       const data = response.data.data || response.data;
       
       return {
