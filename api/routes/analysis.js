@@ -226,9 +226,15 @@ async function analyzeWithRetry(article, sessionId, maxRetries = 3) {
         geminiResult.sentimentHint
       );
 
+      // Calculate summary length - use character count for non-English languages
+      const isChinese = /[\u4e00-\u9fff]/.test(geminiResult.summary);
+      const summaryLength = isChinese 
+        ? geminiResult.summary.length // Character count for Chinese
+        : geminiResult.summary.split(' ').length; // Word count for English
+
       const analysis = {
         summary: geminiResult.summary,
-        summaryLength: geminiResult.summary.split(' ').length,
+        summaryLength,
         sentiment,
         analyzedAt: new Date(),
         processingTime: Date.now() - startTime

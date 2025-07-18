@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { z } from 'zod';
 import { extract } from '@extractus/article-extractor';
@@ -9,7 +8,7 @@ dotenv.config();
 
 // Define the structured output schema
 const articleAnalysisSchema = z.object({
-  summary: z.string().describe('A comprehensive summary of the article (100-200 words)'),
+  summary: z.string().describe('A clear and concise summary in the same language as the article (100-200 words)'),
   sentimentHint: z.enum(['positive', 'neutral', 'negative']).describe('The sentiment of the article')
 });
 
@@ -31,10 +30,6 @@ class GeminiService {
     
     // Create structured output model
     this.structuredModel = this.langChainModel.withStructuredOutput(articleAnalysisSchema);
-    
-    // Fallback to original client
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    this.model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     
     this.requestCount = 0;
     this.minuteLimit = 15;
@@ -84,53 +79,11 @@ class GeminiService {
     }
 
     try {
-      // Try LangChain structured approach first
-      const structuredResult = await this.analyzeWithLangChain(enrichedArticle);
+      // Use LangChain structured approach
+      const result = await this.analyzeWithLangChain(enrichedArticle);
       this.requestCount++;
       console.log(`Gemini API called successfully with LangChain structured output. Requests used: ${this.requestCount}/${this.minuteLimit}`);
-      return structuredResult;
-    } catch (langChainError) {
-      console.warn('LangChain structured approach failed:', langChainError.message);
-      // Continue to fallback method
-    }
-
-    // Fallback to enhanced prompt approach
-    try {
-      const prompt = `
-        Analyze this news article and provide:
-        1. A comprehensive summary (aim for 100-200 words but be flexible based on content importance)
-        2. Initial sentiment assessment
-        
-        Article Title: ${enrichedArticle.title}
-        Article Content: ${enrichedArticle.content || enrichedArticle.description || ''}
-      `;
-
-      // Enhanced prompt for better JSON compliance
-      const enhancedPrompt = `${prompt}
-      
-      Please respond ONLY with valid JSON in this exact format:
-      {"summary": "your summary here", "sentimentHint": "positive|neutral|negative"}
-      
-      Do not include any markdown formatting or code blocks.`;
-
-      const result = await this.model.generateContent({
-        contents: [{ parts: [{ text: enhancedPrompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 500,
-          topK: 40,
-          topP: 0.95,
-        }
-      });
-
-      this.requestCount++;
-      
-      const responseText = result.response.text();
-      console.log(`Gemini API called successfully with fallback. Requests used: ${this.requestCount}/${this.minuteLimit}`);
-      
-      // Enhanced JSON parsing with multiple strategies
-      return this.parseGeminiResponse(responseText, enrichedArticle);
-      
+      return result;
     } catch (error) {
       console.error('Gemini API error:', error);
       
@@ -146,7 +99,7 @@ class GeminiService {
     try {
       const prompt = `
         Analyze this news article and provide:
-        1. A comprehensive yet concise summary following the article language (aim for 100-200 words but be flexible based on content importance)
+        1. A clear and concise summary in the same language as the article. The summary should capture the main points and important details, ideally between 100-200 words, but adjust the length if the content requires more or less explanation.
         2. Initial sentiment assessment
         
         Article Title: ${article.title}
@@ -173,45 +126,6 @@ class GeminiService {
       
       throw error;
     }
-  }
-
-  parseGeminiResponse(responseText, article) {
-    console.log('Raw Gemini response:', responseText);
-    
-    // Simplified JSON parsing for fallback method only
-    try {
-      const parsed = JSON.parse(responseText);
-      if (parsed.summary && parsed.sentimentHint) {
-        console.log('✅ Direct JSON parsing successful');
-        return parsed;
-      }
-    } catch (parseError) {
-      console.log('❌ Direct JSON parsing failed, using fallback');
-    }
-    
-    // Fallback to basic extraction
-    const summary = this.extractSummary(responseText);
-    const sentimentHint = this.extractSentimentHint(responseText);
-    
-    const result = {
-      summary: summary || this.generateFallbackSummary(article),
-      sentimentHint: sentimentHint || 'neutral'
-    };
-    
-    console.log('📋 Fallback extraction result:', result);
-    return result;
-  }
-
-  // Extract summary from malformed response
-  extractSummary(text) {
-    const summaryMatch = text.match(/"summary":\s*"([^"]+)"/);
-    return summaryMatch ? summaryMatch[1] : null;
-  }
-
-  // Extract sentiment hint from malformed response
-  extractSentimentHint(text) {
-    const sentimentMatch = text.match(/"sentimentHint":\s*"(positive|neutral|negative)"/);
-    return sentimentMatch ? sentimentMatch[1] : 'neutral';
   }
 
   // Generate fallback summary when Gemini fails

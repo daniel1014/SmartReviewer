@@ -156,7 +156,7 @@ export default function ArticleCard({
                          text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400
                          transition-colors duration-200"
             >
-              <span>Summary ({article.analysis.summaryLength} words)</span>
+              <span>Summary ({article.analysis.summaryLength} {/[\u4e00-\u9fff]/.test(article.analysis.summary) ? 'chars' : 'words'})</span>
               {showSummary ? (
                 <ChevronUp className="h-4 w-4" />
               ) : (
