@@ -202,43 +202,46 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// Helper function to analyze article with retry logic
+// Helper functions for analysis
+const generateUrlHash = (url) => crypto.createHash('md5').update(url).digest('hex');
+
+const calculateSummaryLength = (summary) => {
+  // Use character count for Chinese/Japanese/Korean, word count for others
+  const isCJK = /[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/.test(summary);
+  return isCJK ? summary.length : summary.split(' ').length;
+};
+
+const createAnalysisResult = (geminiResult, sentiment, startTime) => ({
+  summary: geminiResult.summary,
+  summaryLength: calculateSummaryLength(geminiResult.summary),
+  sentiment,
+  analyzedAt: new Date(),
+  processingTime: Date.now() - startTime
+});
+
+// Main analysis function with retry logic
 async function analyzeWithRetry(article, sessionId, maxRetries = 3) {
-  let lastError;
   const startTime = Date.now();
+  const urlHash = generateUrlHash(article.url);
   
+  // Check for existing analysis first
+  const existing = await Article.findOne({ urlHash });
+  if (existing?.analysis?.summary) {
+    console.log(`Using cached analysis for: ${article.title}`);
+    return existing.analysis;
+  }
+
+  let lastError;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      // Check if already analyzed
-      const urlHash = crypto.createHash('md5').update(article.url).digest('hex');
-      const existing = await Article.findOne({ urlHash });
-      
-      if (existing?.analysis?.summary) {
-        console.log(`Using cached analysis for: ${article.title}`);
-        return existing.analysis;
-      }
-
-      // Perform analysis
+      // Perform analysis for article summary and sentiment 
       const geminiResult = await geminiService.analyzeArticle(article);
-      
       const sentiment = sentimentService.analyzeSentiment(
         `${article.title} ${article.content || article.description || ''}`,
         geminiResult.sentimentHint
       );
 
-      // Calculate summary length - use character count for non-English languages
-      const isChinese = /[\u4e00-\u9fff]/.test(geminiResult.summary);
-      const summaryLength = isChinese 
-        ? geminiResult.summary.length // Character count for Chinese
-        : geminiResult.summary.split(' ').length; // Word count for English
-
-      const analysis = {
-        summary: geminiResult.summary,
-        summaryLength,
-        sentiment,
-        analyzedAt: new Date(),
-        processingTime: Date.now() - startTime
-      };
+      const analysis = createAnalysisResult(geminiResult, sentiment, startTime);
 
       // Save to database
       const saved = await Article.findOneAndUpdate(
@@ -275,7 +278,6 @@ async function analyzeWithRetry(article, sessionId, maxRetries = 3) {
   
   // Save failed analysis to database
   try {
-    const urlHash = crypto.createHash('md5').update(article.url).digest('hex');
     await Article.findOneAndUpdate(
       { urlHash },
       {

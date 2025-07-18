@@ -66,10 +66,6 @@ class GNewsService {
           params.append('country', filters.country);
         }
 
-        if (filters.category) {
-          params.append('category', filters.category);
-        }
-
         const url = `${this.baseURL}/search?${params.toString()}`;
         
         console.log(`GNews API URL: ${url}`);

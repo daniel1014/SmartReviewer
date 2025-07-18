@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Database, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { useDatabaseStatus } from '../hooks/useAnalysis';
 
@@ -8,7 +8,7 @@ interface DatabaseStatusProps {
 }
 
 export default function DatabaseStatus({ className = '', showDetails = false }: DatabaseStatusProps) {
-  const { databaseStatus, systemStatus, isLoading, error, refetch, lastUpdated } = useDatabaseStatus();
+  const { databaseStatus, systemStatus, isLoading, refetch, lastUpdated } = useDatabaseStatus();
   const [showTooltip, setShowTooltip] = useState(false);
 
   const getStatusIcon = () => {

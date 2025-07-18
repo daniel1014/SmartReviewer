@@ -1,4 +1,3 @@
-import React from 'react';
 import { Settings, List, Flag, Languages } from 'lucide-react';
 
 interface SearchFiltersProps {
@@ -16,7 +15,6 @@ const LIMIT_OPTIONS = [
   { value: 6, label: '6 articles' },
   { value: 9, label: '9 articles' },
 ];
-
 
 const COUNTRY_OPTIONS = [
   { value: '', label: 'All Countries' },

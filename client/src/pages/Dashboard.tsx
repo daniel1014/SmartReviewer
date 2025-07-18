@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Newspaper, TrendingUp, Activity, Settings, History, Database } from 'lucide-react';
+import { Newspaper, TrendingUp, Activity, Settings, History } from 'lucide-react';
 import type { Article } from '../../../shared/types';
 import SearchBar from '../components/SearchBar';
 import SearchFilters from '../components/SearchFilters';
@@ -106,16 +106,15 @@ export default function Dashboard() {
   // handleBatchAnalyze will be defined after articles
 
   const handleAnalyze = useCallback(async (article: any) => {
-    console.log('🔍 Starting analysis for article:', article.title);
-    console.log('📄 Article data:', article);
+    console.log('🔍 Starting analysis for:', article.title);
     
     setAnalyzingArticles(prev => new Set(prev).add(article.url));
     
     try {
-      console.log('🚀 Calling analyzeArticleMutation with article:', article);
+      // Calling analysis service
       const result = await analyzeArticleMutation.mutateAsync(article);
       
-      console.log('✅ Analysis completed successfully:', result);
+      console.log('✅ Analysis completed for:', article.title);
       
       // Validate the response structure
       if (!result || !result.data) {
@@ -145,7 +144,7 @@ export default function Dashboard() {
         }
       });
       
-      console.log('✅ Analysis state updated successfully for:', article.title);
+      // Analysis state updated
       showToast('Article analyzed successfully!', 'success');
     } catch (error) {
       console.error('❌ Analysis failed:', error);
@@ -210,7 +209,7 @@ export default function Dashboard() {
       return;
     }
     
-    console.log('🔍 Starting batch analysis for articles:', selectedArticleObjects.map((a: Article) => a.title));
+    console.log('🔍 Starting batch analysis for', selectedArticleObjects.length, 'articles');
     
     setBatchStatus({
       total: selectedArticleObjects.length,
@@ -222,7 +221,7 @@ export default function Dashboard() {
     try {
       const result = await analyzeBatchMutation.mutateAsync(selectedArticleObjects);
       
-      console.log('✅ Batch analysis completed:', result);
+      console.log('✅ Batch analysis completed');
       
       if (result.data) {
         const { results, summary } = result.data;

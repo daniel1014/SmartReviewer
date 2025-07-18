@@ -7,12 +7,14 @@ const api = axios.create({
   }
 });
 
-// Session management
+// Session management - generates unique session ID for tracking
+const SESSION_KEY = import.meta.env.VITE_SESSION_KEY || 'smart_reviewer_session';
+
 const getSessionId = () => {
-  let sessionId = localStorage.getItem(import.meta.env.VITE_SESSION_KEY || 'smart_reviewer_session');
+  let sessionId = localStorage.getItem(SESSION_KEY);
   if (!sessionId) {
-    sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem(import.meta.env.VITE_SESSION_KEY || 'smart_reviewer_session', sessionId);
+    sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    localStorage.setItem(SESSION_KEY, sessionId);
   }
   return sessionId;
 };
@@ -55,48 +57,29 @@ export const newsAPI = {
     api.get('/news/status'),
 };
 
+// Helper function to handle API calls with consistent error handling
+const apiCall = async (apiFunction: () => Promise<any>, errorContext: string) => {
+  try {
+    const response = await apiFunction();
+    return response.data;
+  } catch (error) {
+    console.error(`❌ API ${errorContext} failed:`, error);
+    throw error;
+  }
+};
+
 export const analysisAPI = {
-  analyzeArticle: async (article: any) => {
-    try {
-      console.log('🚀 API: Sending analysis request for article:', article.title);
-      const response = await api.post('/analysis/article', { article });
-      console.log('✅ API: Analysis response received:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ API: Analysis request failed:', error);
-      throw error;
-    }
-  },
+  analyzeArticle: (article: any) => 
+    apiCall(() => api.post('/analysis/article', { article }), 'article analysis'),
     
-  analyzeBatch: async (articles: any[]) => {
-    try {
-      const response = await api.post('/analysis/batch', { articles });
-      return response.data;
-    } catch (error) {
-      console.error('❌ API: Batch analysis failed:', error);
-      throw error;
-    }
-  },
+  analyzeBatch: (articles: any[]) => 
+    apiCall(() => api.post('/analysis/batch', { articles }), 'batch analysis'),
     
-  getHistory: async (filters = {}) => {
-    try {
-      const response = await api.get('/analysis/history', { params: filters });
-      return response.data;
-    } catch (error) {
-      console.error('❌ API: History fetch failed:', error);
-      throw error;
-    }
-  },
+  getHistory: (filters = {}) => 
+    apiCall(() => api.get('/analysis/history', { params: filters }), 'history fetch'),
     
-  getStatus: async () => {
-    try {
-      const response = await api.get('/analysis/status');
-      return response.data;
-    } catch (error) {
-      console.error('❌ API: Status check failed:', error);
-      throw error;
-    }
-  },
+  getStatus: () => 
+    apiCall(() => api.get('/analysis/status'), 'status check'),
 };
 
 export const healthAPI = {
