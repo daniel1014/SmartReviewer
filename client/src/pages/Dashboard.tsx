@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Newspaper, TrendingUp, Activity, Settings, History } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Article } from '../../../shared/types';
 import SearchBar from '../components/SearchBar';
 import SearchFilters from '../components/SearchFilters';
@@ -15,6 +16,7 @@ import { useInfiniteNewsSearch } from '../hooks/useNewsSearch';
 import { useAnalyzeArticle, useAnalyzeBatch, useAnalysisHistory } from '../hooks/useAnalysis';
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [resultLimit, setResultLimit] = useState(9);
   const [country, setCountry] = useState('');
@@ -75,15 +77,36 @@ export default function Dashboard() {
 
   const handleResultLimitChange = useCallback((limit: number) => {
     setResultLimit(limit);
-  }, []);
+    // Clear ALL infinite query cache entries for the current search query
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const [type, queryString] = query.queryKey;
+        return type === 'news-infinite' && queryString === searchQuery;
+      }
+    });
+  }, [searchQuery, queryClient]);
 
   const handleCountryChange = useCallback((newCountry: string) => {
     setCountry(newCountry);
-  }, []);
+    // Clear cache when country filter changes
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const [type, queryString] = query.queryKey;
+        return type === 'news-infinite' && queryString === searchQuery;
+      }
+    });
+  }, [searchQuery, queryClient]);
 
   const handleLanguageChange = useCallback((newLanguage: string) => {
     setLanguage(newLanguage);
-  }, []);
+    // Clear cache when language filter changes
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const [type, queryString] = query.queryKey;
+        return type === 'news-infinite' && queryString === searchQuery;
+      }
+    });
+  }, [searchQuery, queryClient]);
 
   const handleArticleSelect = useCallback((article: any) => {
     setSelectedArticles(prev => {
