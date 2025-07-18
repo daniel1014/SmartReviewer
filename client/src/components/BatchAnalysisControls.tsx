@@ -36,8 +36,7 @@ export default function BatchAnalysisControls({
   className = ''
 }: BatchAnalysisControlsProps) {
   const allSelected = selectedCount === totalArticles;
-  const noneSelected = selectedCount === 0;
-  const maxBatchSize = 5; // Backend limit
+  const maxBatchSize = 10; // Backend limit
 
   const canAnalyze = selectedCount > 0 && selectedCount <= maxBatchSize && !isAnalyzing;
   const exceededLimit = selectedCount > maxBatchSize;

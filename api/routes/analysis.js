@@ -68,8 +68,9 @@ router.post('/batch', async (req, res) => {
     }
 
     if (articles.length > 5) {
+    if (articles.length > 10) {
       return res.status(400).json({
-        error: 'Maximum 5 articles can be analyzed at once'
+        error: 'Maximum 10 articles can be analyzed at once'
       });
     }
 
