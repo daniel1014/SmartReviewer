@@ -24,6 +24,7 @@ export default function Dashboard() {
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
   const [batchAnalysisMode, setBatchAnalysisMode] = useState(false);
   const [showAnalysisHistory, setShowAnalysisHistory] = useState(false);
+  const [sentimentFilter, setSentimentFilter] = useState<string>('');
   const [batchStatus, setBatchStatus] = useState<{
     total: number;
     successful: number;
@@ -51,13 +52,19 @@ export default function Dashboard() {
     refetch: refetchNews
   } = useInfiniteNewsSearch(searchQuery, resultLimit, filters);
 
-  // Analysis history hook
+  // Analysis history hook with sentiment filter
+  const historyFilters = useMemo(() => {
+    const filters: { sentiment?: string } = {};
+    if (sentimentFilter) filters.sentiment = sentimentFilter;
+    return filters;
+  }, [sentimentFilter]);
+
   const { 
     data: analysisHistoryData, 
     isLoading: isLoadingHistory, 
     error: historyError,
     refetch: refetchHistory
-  } = useAnalysisHistory();
+  } = useAnalysisHistory(historyFilters);
 
   const analyzeArticleMutation = useAnalyzeArticle();
   const analyzeBatchMutation = useAnalyzeBatch();
@@ -412,12 +419,24 @@ export default function Dashboard() {
                     <History className="h-5 w-5" />
                     Analysis History
                   </h3>
-                  <button
-                    onClick={() => refetchHistory()}
-                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    Refresh
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={sentimentFilter}
+                      onChange={(e) => setSentimentFilter(e.target.value)}
+                      className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">All Sentiments</option>
+                      <option value="positive">Positive</option>
+                      <option value="neutral">Neutral</option>
+                      <option value="negative">Negative</option>
+                    </select>
+                    <button
+                      onClick={() => refetchHistory()}
+                      className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      Refresh
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -546,7 +565,9 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center text-sm text-gray-600 dark:text-gray-400">
             <p>Smart Reviewer - AI-powered news analysis</p>
-            <p className="mt-1">Built with React, TypeScript, and Tailwind CSS</p>
+            <p className="mt-1">
+              Built with React, TypeScript, Node.js (Express), and MongoDB
+            </p>
           </div>
         </div>
       </footer>
