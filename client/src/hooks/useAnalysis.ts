@@ -1,13 +1,4 @@
-/**
- * Custom React hooks for interacting with the article analysis API.
- * 
- * Why:
- * - Encapsulates logic for analyzing articles, batch analysis, fetching analysis history, and status.
- * - Promotes code reuse and separation of concerns across the app.
- * - Simplifies API usage in components by providing easy-to-use hooks.
- * 
- * All hooks use React Query for caching, mutation, and async state management.
- */
+// Handles article analysis API calls and state
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { analysisAPI } from '../services/api';
